@@ -13,6 +13,9 @@ player reaches three points.
 
 There are sound effects that were supplied by <a href="https://opengameart.org">Open Game Art</a> and the font is supplied by <a href="https://kenny.nl/assets/kenney-fonts">kenney.nl</a>.
 
+<h5>In-game screenshot</h5>
+<img height="400" src="https://github.com/H4ppy-04/Retro-Pong/blob/dba25af02dede6abeb40ec18b419e9888ed4baff/Screenshots/Screenshot_20260713_235444.png" alt="in-game-screenshot"></img>
+
 <h3>Usage</h3>
 
 To run the program, create a virtual environment, install the requirements file
