@@ -10,20 +10,138 @@ Description: This is a 2-player pong game that I made. This is PVP (Player
 Credits: Kenney.nl under the CC0 license for assets.
 """
 
+import sys
+
 import pygame
 
 _, failed = pygame.init()
 assert not failed
 
-window_size = 1920, 1080
-screen = pygame.display.set_mode(window_size)
-font = pygame.font.Font("Fonts/Kenney Future.ttf", 80)
-pygame.display.set_caption("Pong")
 
-sound_won = pygame.Sound("Sounds/SoundCoin.wav")
-sound_hit_a = pygame.Sound("Sounds/SoundLand1.wav")
-sound_hit_b = pygame.Sound("Sounds/SoundLand2.wav")
-sound_start_level = pygame.Sound("Sounds/SoundStartLevel.wav")
+class Score:
+
+    def __init__(self):
+        self.player = 0
+        self.enemy = 0
+
+    def reset(self):
+        self.player = 0
+        self.enemy = 0
+
+    def render(self, font: pygame.Font) -> list[pygame.Surface]:
+        """Return player and enemy scores respectively"""
+        return [
+            font.render(str(self.player), True, (50, 50, 50)),
+            font.render(str(self.enemy), True, (50, 50, 50)),
+        ]
+
+
+class Game:
+    window_size: tuple[int, int] = 1920, 1080
+
+    def __init__(self) -> None:
+        self.screen = pygame.display.set_mode(self.window_size)
+        self.font = pygame.font.Font("Fonts/Kenney Future.ttf", 80)
+        pygame.display.set_caption("Pong")
+
+        self.sound_won = pygame.mixer.Sound("Sounds/SoundCoin.wav")
+        self.sound_hit_a = pygame.mixer.Sound("Sounds/SoundLand1.wav")
+        self.sound_hit_b = pygame.mixer.Sound("Sounds/SoundLand2.wav")
+        self.sound_start_level = pygame.mixer.Sound("Sounds/SoundStartLevel.wav")
+
+        self.ball = Ball()
+        self.paddle_a = Paddle(Paddle.size[0] / 2, self.window_size[0] / 2 - Paddle.size[1] / 2)
+        self.paddle_b = Paddle(
+            self.window_size[0] - Paddle.size[0] / 2,
+            self.window_size[1] / 2 - Paddle.size[1] / 2,
+        )
+
+        self.score = Score()
+        self.score_text = self.score.render(self.font)
+
+        self.delta = 0.0
+        self.clock = pygame.time.Clock()
+
+    def update(self, delta):
+        self.ball.rect.x += self.ball.direction[0] * self.ball.speed * self.delta
+        self.ball.rect.y += self.ball.direction[1] * self.ball.speed * self.delta
+
+        if self.ball.rect.bottom > self.window_size[1] or self.ball.rect.top < 0:
+            self.ball.direction[1] = -self.ball.direction[1]
+        if self.ball.rect.right < 0:
+            self.ball.reset_position()
+            self.score.enemy += 1
+            self.sound_won.play()
+            if self.score.enemy == 3:
+                self.score.reset()
+                self.sound_start_level.play()
+            self.score_text = self.score.render(self.font)
+        elif self.ball.rect.left > self.window_size[0]:
+            self.ball.reset_position()
+            self.score.player += 1
+            self.sound_won.play()
+            if self.score.player == 3:
+                self.score.reset()
+                self.sound_start_level.play()
+            self.score_text = self.score.render(self.font)
+        if self.ball.rect.colliderect(self.paddle_a.rect):
+            self.ball.switch_direction()
+            self.sound_hit_a.play()
+        elif self.ball.rect.colliderect(self.paddle_b.rect):
+            self.ball.switch_direction()
+            self.sound_hit_b.play()
+
+        self.paddle_a.update(delta)
+        self.paddle_b.update(delta)
+
+    def draw(self, surface: pygame.Surface):
+        surface.fill((20, 20, 20))
+
+        surface.blit(
+            self.score_text[0],
+            (
+                self.window_size[0] / 5 - self.score_text[0].width / 2,
+                self.window_size[1] / 2 - self.score_text[0].height / 2,
+            ),
+        )
+
+        surface.blit(
+            self.score_text[1],
+            (
+                (self.window_size[0] - (self.window_size[0] / 5)) - self.score_text[1].width / 2,
+                self.window_size[1] / 2 - self.score_text[1].height / 2,
+            ),
+        )
+
+        self.paddle_a.draw(surface)
+        self.paddle_b.draw(surface)
+        self.ball.draw(surface)
+
+    def loop(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    self.paddle_b.direction = -1
+                if event.key == pygame.K_DOWN:
+                    self.paddle_b.direction = 1
+                if event.key == pygame.K_w:
+                    self.paddle_a.direction = -1
+                if event.key == pygame.K_s:
+                    self.paddle_a.direction = 1
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_UP or event.key == pygame.K_DOWN:
+                    self.paddle_b.direction = 0
+                if event.key == pygame.K_w or event.key == pygame.K_s:
+                    self.paddle_a.direction = 0
+
+        self.update(self.delta)
+        self.draw(self.screen)
+        pygame.display.flip()
+
+        self.delta = self.clock.tick(60)
 
 
 class Paddle:
@@ -44,29 +162,9 @@ class Paddle:
             if self.rect.top <= 0:
                 return
         elif self.direction == 1:
-            if self.rect.bottom >= window_size[1]:
+            if self.rect.bottom >= Game.window_size[1]:
                 return
         self.rect.y += self.direction * self.speed * delta
-
-
-class Score:
-    player = 0
-    enemy = 0
-
-    def reset(self):
-        self.player = 0
-        self.enemy = 0
-
-    def render(self) -> list[pygame.Surface]:
-        """Return player and enemy scores respectively"""
-        return [
-            font.render(str(self.player), True, (50, 50, 50)),
-            font.render(str(self.enemy), True, (50, 50, 50)),
-        ]
-
-
-score = Score()
-score_text = score.render()
 
 
 class Ball:
@@ -78,118 +176,30 @@ class Ball:
         self.direction = [1, 1]
         self.rect = self.image.get_rect(
             center=(
-                window_size[0] / 2 - self.size / 2,
-                window_size[1] / 2 - self.size / 2,
+                Game.window_size[0] / 2 - self.size / 2,
+                Game.window_size[1] / 2 - self.size / 2,
             )
         )
-        pygame.draw.circle(
-            self.image, "#FFFFFF", (self.size // 2, self.size // 2), self.size / 2
-        )
-
-    def update(self, delta: float):
-        global score_text
-        self.rect.x += self.direction[0] * self.speed * delta
-        self.rect.y += self.direction[1] * self.speed * delta
-
-        if self.rect.bottom > window_size[1] or self.rect.top < 0:
-            self.direction[1] = -self.direction[1]
-        if self.rect.right < 0:
-            self.reset_position()
-            score.enemy += 1
-            sound_won.play()
-            if score.enemy == 3:
-                score.reset()
-                sound_start_level.play()
-            score_text = score.render()
-        if self.rect.left > window_size[0]:
-            self.reset_position()
-            score.player += 1
-            sound_won.play()
-            if score.player == 3:
-                score.reset()
-                sound_start_level.play()
-            score_text = score.render()
+        pygame.draw.circle(self.image, "#FFFFFF", (self.size // 2, self.size // 2), self.size / 2)
 
     def draw(self, surface: pygame.Surface):
         surface.blit(self.image, self.rect)
 
     def reset_position(self):
-        self.rect.x = window_size[0] / 2 - self.size / 2
-        self.rect.y = window_size[1] / 2 - self.size / 2
+        self.rect.x = Game.window_size[0] // 2 - self.size // 2
+        self.rect.y = Game.window_size[1] // 2 - self.size // 2
 
     def switch_direction(self):
         self.direction[0] = -self.direction[0]
 
 
-running = True
+def main():
+    game = Game()
+    game.sound_start_level.play()
 
-ball = Ball()
-paddle_a = Paddle(Paddle.size[0] / 2, window_size[0] / 2 - Paddle.size[1] / 2)
-paddle_b = Paddle(
-    window_size[0] - Paddle.size[0] / 2, window_size[0] / 2 - Paddle.size[1] / 2
-)
-
-delta = 0.0
-clock = pygame.time.Clock()
-
-sound_start_level.play()
+    while True:
+        game.loop()
 
 
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP:
-                paddle_b.direction = -1
-            if event.key == pygame.K_DOWN:
-                paddle_b.direction = 1
-            if event.key == pygame.K_w:
-                paddle_a.direction = -1
-            if event.key == pygame.K_s:
-                paddle_a.direction = 1
-        if event.type == pygame.KEYUP:
-            if event.key == pygame.K_UP or event.key == pygame.K_DOWN:
-                paddle_b.direction = 0
-            if event.key == pygame.K_w or event.key == pygame.K_s:
-                paddle_a.direction = 0
-
-    screen.fill((20, 20, 20))
-
-    screen.blit(
-        score_text[0],
-        (
-            window_size[0] / 5 - score_text[0].width / 2,
-            window_size[1] / 2 - score_text[0].height / 2,
-        ),
-    )
-
-    screen.blit(
-        score_text[1],
-        (
-            (window_size[0] - (window_size[0] / 5)) - score_text[1].width / 2,
-            window_size[1] / 2 - score_text[1].height / 2,
-        ),
-    )
-
-    ball.draw(screen)
-    ball.update(delta)
-
-    if ball.rect.colliderect(paddle_a.rect):
-        ball.switch_direction()
-        sound_hit_a.play()
-    elif ball.rect.colliderect(paddle_b.rect):
-        ball.switch_direction()
-        sound_hit_b.play()
-
-    paddle_a.draw(screen)
-    paddle_b.draw(screen)
-
-    paddle_a.update(delta)
-    paddle_b.update(delta)
-
-    pygame.display.flip()
-    delta = clock.tick(60)
-
-pygame.quit()
-exit(0)
+if __name__ == "__main__":
+    main()
